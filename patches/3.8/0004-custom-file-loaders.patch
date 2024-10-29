@@ -1,0 +1,288 @@
+diff --git a/Python/fileutils.c b/Python/fileutils.c
+index f0bdd9c17371d328c01612cac156976b84152eb7..94a4369e763944ef4cb652d448a6402ab53181f5 100644
+--- a/Python/fileutils.c
++++ b/Python/fileutils.c
+@@ -1045,20 +1045,20 @@ _Py_fstat(int fd, struct _Py_stat_struct *status)
+ int
+ _Py_stat(PyObject *path, struct stat *statbuf)
+ {
+-#ifdef MS_WINDOWS
+-    int err;
+-    struct _stat wstatbuf;
+-    const wchar_t *wpath;
+-
+-    wpath = _PyUnicode_AsUnicode(path);
+-    if (wpath == NULL)
+-        return -2;
+-
+-    err = _wstat(wpath, &wstatbuf);
+-    if (!err)
+-        statbuf->st_mode = wstatbuf.st_mode;
+-    return err;
+-#else
++//#ifdef MS_WINDOWS
++//    int err;
++//    struct _stat wstatbuf;
++//    const wchar_t *wpath;
++//
++//    wpath = _PyUnicode_AsUnicode(path);
++//    if (wpath == NULL)
++//        return -2;
++//
++//    err = _wstat(wpath, &wstatbuf);
++//    if (!err)
++//        statbuf->st_mode = wstatbuf.st_mode;
++//    return err;
++//#else
+     int ret;
+     PyObject *bytes;
+     char *cpath;
+@@ -1073,10 +1073,10 @@ _Py_stat(PyObject *path, struct stat *statbuf)
+         return -2;
+     }
+ 
+-    ret = stat(cpath, statbuf);
++    ret = PyCustomFile_IsExists ? PyCustomFile_IsExists(cpath) : stat(cpath, statbuf);
+     Py_DECREF(bytes);
+     return ret;
+-#endif
++//#endif
+ }
+ 
+ 
+@@ -1407,7 +1407,7 @@ _Py_wfopen(const wchar_t *path, const wchar_t *mode)
+     if (PySys_Audit("open", "uui", path, mode, 0) < 0) {
+         return NULL;
+     }
+-#ifndef MS_WINDOWS
++//#ifndef MS_WINDOWS
+     char *cpath;
+     char cmode[10];
+     size_t r;
+@@ -1420,15 +1420,23 @@ _Py_wfopen(const wchar_t *path, const wchar_t *mode)
+     if (cpath == NULL) {
+         return NULL;
+     }
+-    f = fopen(cpath, cmode);
++
++    if (PyCustomFile_Load)
++        f = PyCustomFile_Load(cpath, cmode);
++    else
++        f = fopen(cpath, cmode);
++
+     PyMem_RawFree(cpath);
+-#else
+-    f = _wfopen(path, mode);
+-#endif
++//#else
++//    f = _wfopen(path, mode);
++//#endif
+     if (f == NULL)
+         return NULL;
+     if (make_non_inheritable(fileno(f)) < 0) {
+-        fclose(f);
++        if (PyCustomFile_Close)
++            PyCustomFile_Close(f);
++        else
++            fclose(f);
+         return NULL;
+     }
+     return f;
+@@ -1452,11 +1460,14 @@ _Py_fopen(const char *pathname, const char *mode)
+     }
+     Py_DECREF(pathname_obj);
+ 
+-    FILE *f = fopen(pathname, mode);
++    FILE* f = PyCustomFile_Load ? PyCustomFile_Load(pathname, mode) : fopen(pathname, mode);
+     if (f == NULL)
+         return NULL;
+     if (make_non_inheritable(fileno(f)) < 0) {
+-        fclose(f);
++        if (PyCustomFile_Close)
++            PyCustomFile_Close(f);
++        else
++            fclose(f);
+         return NULL;
+     }
+     return f;
+@@ -1480,40 +1491,40 @@ _Py_fopen_obj(PyObject *path, const char *mode)
+ {
+     FILE *f;
+     int async_err = 0;
+-#ifdef MS_WINDOWS
+-    const wchar_t *wpath;
+-    wchar_t wmode[10];
+-    int usize;
+-
+-    assert(PyGILState_Check());
+-
+-    if (PySys_Audit("open", "Osi", path, mode, 0) < 0) {
+-        return NULL;
+-    }
+-    if (!PyUnicode_Check(path)) {
+-        PyErr_Format(PyExc_TypeError,
+-                     "str file path expected under Windows, got %R",
+-                     Py_TYPE(path));
+-        return NULL;
+-    }
+-    wpath = _PyUnicode_AsUnicode(path);
+-    if (wpath == NULL)
+-        return NULL;
+-
+-    usize = MultiByteToWideChar(CP_ACP, 0, mode, -1,
+-                                wmode, Py_ARRAY_LENGTH(wmode));
+-    if (usize == 0) {
+-        PyErr_SetFromWindowsErr(0);
+-        return NULL;
+-    }
+-
+-    do {
+-        Py_BEGIN_ALLOW_THREADS
+-        f = _wfopen(wpath, wmode);
+-        Py_END_ALLOW_THREADS
+-    } while (f == NULL
+-             && errno == EINTR && !(async_err = PyErr_CheckSignals()));
+-#else
++//#ifdef MS_WINDOWS
++//    const wchar_t *wpath;
++//    wchar_t wmode[10];
++//    int usize;
++//
++//    assert(PyGILState_Check());
++//
++//    if (PySys_Audit("open", "Osi", path, mode, 0) < 0) {
++//        return NULL;
++//    }
++//    if (!PyUnicode_Check(path)) {
++//        PyErr_Format(PyExc_TypeError,
++//                     "str file path expected under Windows, got %R",
++//                     Py_TYPE(path));
++//        return NULL;
++//    }
++//    wpath = _PyUnicode_AsUnicode(path);
++//    if (wpath == NULL)
++//        return NULL;
++//
++//    usize = MultiByteToWideChar(CP_ACP, 0, mode, -1,
++//                                wmode, Py_ARRAY_LENGTH(wmode));
++//    if (usize == 0) {
++//        PyErr_SetFromWindowsErr(0);
++//        return NULL;
++//    }
++//
++//    do {
++//        Py_BEGIN_ALLOW_THREADS
++//        f = _wfopen(wpath, wmode);
++//        Py_END_ALLOW_THREADS
++//    } while (f == NULL
++//             && errno == EINTR && !(async_err = PyErr_CheckSignals()));
++//#else
+     PyObject *bytes;
+     char *path_bytes;
+ 
+@@ -1530,13 +1541,13 @@ _Py_fopen_obj(PyObject *path, const char *mode)
+ 
+     do {
+         Py_BEGIN_ALLOW_THREADS
+-        f = fopen(path_bytes, mode);
++        f = PyCustomFile_Load ? PyCustomFile_Load(path_bytes, mode) : fopen(path_bytes, mode);
+         Py_END_ALLOW_THREADS
+     } while (f == NULL
+              && errno == EINTR && !(async_err = PyErr_CheckSignals()));
+ 
+     Py_DECREF(bytes);
+-#endif
++//#endif
+     if (async_err)
+         return NULL;
+ 
+@@ -1546,7 +1557,10 @@ _Py_fopen_obj(PyObject *path, const char *mode)
+     }
+ 
+     if (set_inheritable(fileno(f), 0, 1, NULL) < 0) {
+-        fclose(f);
++        if (PyCustomFile_Close)
++            PyCustomFile_Close(f);
++        else
++            fclose(f);
+         return NULL;
+     }
+     return f;
+diff --git a/Python/pathconfig.c b/Python/pathconfig.c
+index 60c104492d6468da7721c0487bc6b48e49235174..97815cb2a6332f96e8eda70a47504063edbc3460 100644
+--- a/Python/pathconfig.c
++++ b/Python/pathconfig.c
+@@ -540,6 +540,9 @@ _Py_SetProgramFullPath(const wchar_t *program_full_path)
+ wchar_t *
+ Py_GetPath(void)
+ {
++    if (PyCustomFile_IsValidDir)
++        return L"";
++
+     pathconfig_global_init();
+     return _Py_path_config.module_search_path;
+ }
+diff --git a/Python/pylifecycle.c b/Python/pylifecycle.c
+index 8732d814f819aebde07388575be65c97cc604810..f65a1528a070787d301fa74064a8d309ee486765 100644
+--- a/Python/pylifecycle.c
++++ b/Python/pylifecycle.c
+@@ -1046,10 +1046,15 @@ Py_InitializeFromConfig(const PyConfig *config)
+ 
+ 
+ void
+-Py_InitializeEx(int install_sigs)
++Py_InitializeEx(int install_sigs, PyLoadCustomFileFunc customLoad, PyIsCustomFileFunc customIsFile, PyCloseCustomFileFunc customClose, PyIsValidDirFunc customIsDir)
+ {
+     PyStatus status;
+ 
++    PyCustomFile_Close = customClose;
++    PyCustomFile_IsExists = customIsFile;
++    PyCustomFile_Load = customLoad;
++    PyCustomFile_IsValidDir = customIsDir;
++
+     status = _PyRuntime_Initialize();
+     if (_PyStatus_EXCEPTION(status)) {
+         Py_ExitStatusException(status);
+@@ -1075,7 +1080,7 @@ Py_InitializeEx(int install_sigs)
+ void
+ Py_Initialize(void)
+ {
+-    Py_InitializeEx(1);
++    Py_InitializeEx(1, NULL, NULL, NULL, NULL);
+ }
+ 
+ 
+diff --git a/Include/fileobject.h b/Include/fileobject.h
+index 6ec2994aa859b6fbcd71d12fd283733ea1d049ab..c3fee4d8de5d0b9d0a0c6cf1f7c64be77d3b6a94 100644
+--- a/Include/fileobject.h
++++ b/Include/fileobject.h
+@@ -43,6 +43,16 @@ PyAPI_DATA(int) Py_UTF8Mode;
+ #  undef Py_CPYTHON_FILEOBJECT_H
+ #endif
+ 
++typedef FILE* (*PyLoadCustomFileFunc)(const char*, const char*);
++typedef int (*PyIsCustomFileFunc)(const char*);
++typedef int (*PyIsValidDirFunc)(const char*);
++typedef int (*PyCloseCustomFileFunc)(FILE*);
++
++PyAPI_DATA(PyLoadCustomFileFunc) PyCustomFile_Load;
++PyAPI_DATA(PyCloseCustomFileFunc) PyCustomFile_Close;
++PyAPI_DATA(PyIsCustomFileFunc) PyCustomFile_IsExists;
++PyAPI_DATA(PyIsValidDirFunc) PyCustomFile_IsValidDir;
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/Include/pylifecycle.h b/Include/pylifecycle.h
+index c5368b3c5edaa08c7db2ca2f30d291127e1839d8..508985d2a4ab3a3b36fcec8c47def541af72fb89 100644
+--- a/Include/pylifecycle.h
++++ b/Include/pylifecycle.h
+@@ -10,7 +10,7 @@ extern "C" {
+ 
+ /* Initialization and finalization */
+ PyAPI_FUNC(void) Py_Initialize(void);
+-PyAPI_FUNC(void) Py_InitializeEx(int);
++PyAPI_FUNC(void) Py_InitializeEx(int, PyLoadCustomFileFunc, PyIsCustomFileFunc, PyCloseCustomFileFunc, PyIsValidDirFunc);
+ PyAPI_FUNC(void) Py_Finalize(void);
+ #if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x03060000
+ PyAPI_FUNC(int) Py_FinalizeEx(void);
