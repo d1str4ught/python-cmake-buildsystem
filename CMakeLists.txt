@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13.5)
 
-set(PYTHON_VERSION "3.9.17" CACHE STRING "The version of Python to build.")
+set(PYTHON_VERSION "3.8.20" CACHE STRING "The version of Python to build.")
 
 string(REPLACE "." ";" VERSION_LIST ${PYTHON_VERSION})
 list(GET VERSION_LIST 0 PY_VERSION_MAJOR)
@@ -78,8 +78,8 @@ else()
   set(BUILD_WININST_ALWAYS OFF)
 endif()
 option(INSTALL_DEVELOPMENT "Install files required to develop C extensions" ON)
-option(INSTALL_MANUAL "Install man files" ON)
-option(INSTALL_TEST "Install test files" ON)
+option(INSTALL_MANUAL "Install man files" OFF)
+option(INSTALL_TEST "Install test files" OFF)
 
 # Append an item to a string if it does not already contain it.  Any additional
 # arguments are treated as extra "set" arguments
@@ -93,7 +93,7 @@ macro(append_if_absent VARNAME VALUE)
     endif()
 endmacro()
 
-option(USE_SYSTEM_LIBRARIES "Use system libraries" ON)
+option(USE_SYSTEM_LIBRARIES "Use system libraries" OFF)
 
 # Set platform dependent defaults
 set(_use_builtin_zlib_default OFF)
@@ -253,6 +253,7 @@ set(_download_3.8.14_md5 "a82168eb586e19122b747b84038825f2")
 set(_download_3.8.15_md5 "28b111e1e97a9e5acb62e1d153f188d9")
 set(_download_3.8.16_md5 "060040f864f1003b849b33393c9605df")
 set(_download_3.8.17_md5 "d3e789ab828016927a122a0ae9b0e6b0")
+set(_download_3.8.20_md5 "7e0ff9088be5a3c2fd9b7d8b4b632b5e")
 # 3.9.x
 set(_download_3.9.0_md5 "e19e75ec81dd04de27797bf3f9d918fd")
 set(_download_3.9.1_md5 "429ae95d24227f8fa1560684fad6fca7")
